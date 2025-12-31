@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
     std::string vocabulary = "../../Vocabulary/ORBvoc.txt";
     app.add_option("-v,--vocabulary", vocabulary)->capture_default_str();
 
-    std::string setting = "gopro10_maxlens_fisheye_setting_v1.yaml";
+    std::string setting = "RealSense_D435i.yaml";
     app.add_option("-s,--setting", setting)->capture_default_str();
 
     // std::string input_video;
