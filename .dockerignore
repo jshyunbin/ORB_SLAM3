@@ -99,3 +99,4 @@ borrar/*
 */ExecMean.txt
 .vscode
 .git
+**/.git
