@@ -199,6 +199,7 @@ int main(int argc, char **argv) {
     cv::Mat imCV, imRightCV;
     int width_img, height_img;
     double timestamp_image = -1.0;
+    double timestamp_image_start = -1.0;
     bool image_ready = false;
     int count_im_buffer = 0; // count dropped frames
 
@@ -224,6 +225,8 @@ int main(int argc, char **argv) {
             imRightCV = cv::Mat(cv::Size(width_img, height_img), CV_8U, (void*)(ir_frameR.get_data()), cv::Mat::AUTO_STEP);
 
             timestamp_image = fs.get_timestamp()*1e-3;
+            if(timestamp_image_start<0)
+                timestamp_image_start = timestamp_image;
             image_ready = true;
 
             while(v_gyro_timestamp.size() > v_accel_timestamp_sync.size())
@@ -384,7 +387,7 @@ int main(int argc, char **argv) {
             if(!image_ready)
             {
                 // cond_image_rec.wait(lk);
-                std::cv_status status = cond_image_rec.wait_for(lk, std::chrono::milliseconds(3000));
+                std::cv_status status = cond_image_rec.wait_for(lk, std::chrono::milliseconds(100));
 
                 if (status == std::cv_status::timeout){
                     std::cout << "Bag Playback Finished (Timeout)." << std::endl;
@@ -416,10 +419,12 @@ int main(int argc, char **argv) {
 
             // Copy the IMU data
             vGyro = v_gyro_data;
-            vGyro_times = v_gyro_timestamp;
+            for (auto &t : v_gyro_timestamp)
+                vGyro_times.push_back(t - timestamp_image_start);
             vAccel = v_accel_data_sync;
-            vAccel_times = v_accel_timestamp_sync;
-            timestamp = timestamp_image;
+            for (auto &t : v_accel_timestamp_sync)
+                vAccel_times.push_back(t - timestamp_image_start);
+            timestamp = timestamp_image - timestamp_image_start;
             im = imCV.clone();
             imRight = imRightCV.clone();
 
