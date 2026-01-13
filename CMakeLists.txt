@@ -158,25 +158,22 @@ target_link_libraries(gopro_slam ${PROJECT_NAME})
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/RGB-D-Inertial)
 
-add_executable(rgbd_inertial_realsense_D435i
-Examples/RGB-D-Inertial/rgbd_inertial_realsense_D435i.cc)
-target_link_libraries(rgbd_inertial_realsense_D435i 
-    ${PROJECT_NAME}
-    ${realsense2_LIBRARY}
-)
+# add_executable(rgbd_inertial_realsense_D435i
+# Examples/RGB-D-Inertial/rgbd_inertial_realsense_D435i.cc)
+# target_link_libraries(rgbd_inertial_realsense_D435i 
+#     ${PROJECT_NAME}
+#     ${realsense2_LIBRARY}
+# )
 
-add_executable(realsense_slam
-Examples/RGB-D-Inertial/realsense_slam.cc)
-target_link_libraries(realsense_slam 
-    ${PROJECT_NAME}
-    ${realsense2_LIBRARY}
-)
+# add_executable(realsense_slam
+# Examples/RGB-D-Inertial/realsense_slam.cc)
+# target_link_libraries(realsense_slam 
+#     ${PROJECT_NAME}
+#     ${realsense2_LIBRARY}
+# )
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Stereo-Inertial)
 
-add_executable(stereo_inertial_realsense_D435i
-Examples/Stereo-Inertial/stereo_inertial_realsense_D435i.cc)
-target_link_libraries(stereo_inertial_realsense_D435i
-    ${PROJECT_NAME}
-    ${realsense2_LIBRARY}
-)
+add_executable(realsense_slam
+Examples/Stereo-Inertial/realsense_slam.cc)
+target_link_libraries(realsense_slam ${PROJECT_NAME})
