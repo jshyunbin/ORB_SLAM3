@@ -47,7 +47,6 @@ MESSAGE(${OpenCV_VERSION})
 
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(Pangolin REQUIRED)
-find_package(realsense2)
 
 include_directories(
 ${PROJECT_SOURCE_DIR}
@@ -132,14 +131,6 @@ ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
 -lcrypto
 )
 
-# realsense
-# include_directories(${PROJECT_NAME}
-# ${realsense_INCLUDE_DIR}
-# )
-# target_link_libraries(${PROJECT_NAME}
-# ${realsense2_LIBRARY}
-# )
-
 # Build examples
 #Monocular inertial examples
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Monocular-Inertial)
@@ -155,22 +146,6 @@ target_link_libraries(mono_inertial_gopro_localize ${PROJECT_NAME})
 add_executable(gopro_slam
 Examples/Monocular-Inertial/gopro_slam.cc)
 target_link_libraries(gopro_slam ${PROJECT_NAME})
-
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/RGB-D-Inertial)
-
-# add_executable(rgbd_inertial_realsense_D435i
-# Examples/RGB-D-Inertial/rgbd_inertial_realsense_D435i.cc)
-# target_link_libraries(rgbd_inertial_realsense_D435i 
-#     ${PROJECT_NAME}
-#     ${realsense2_LIBRARY}
-# )
-
-# add_executable(realsense_slam
-# Examples/RGB-D-Inertial/realsense_slam.cc)
-# target_link_libraries(realsense_slam 
-#     ${PROJECT_NAME}
-#     ${realsense2_LIBRARY}
-# )
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Stereo-Inertial)
 
