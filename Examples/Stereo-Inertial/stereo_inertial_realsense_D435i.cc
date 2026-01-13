@@ -196,9 +196,10 @@ int main(int argc, char **argv) {
     vector<double> v_accel_timestamp_sync;
     vector<rs2_vector> v_accel_data_sync;
 
-    cv::Mat imCV, imRightCV;
+    vector<cv::Mat> imCV, imRightCV;
     int width_img, height_img;
-    double timestamp_image = -1.0;
+    vector<double> timestamp_image;
+    double prev_timestamp_image = -1.0;
     double timestamp_image_start = -1.0;
     bool image_ready = false;
     int count_im_buffer = 0; // count dropped frames
@@ -212,7 +213,7 @@ int main(int argc, char **argv) {
             count_im_buffer++;
 
             double new_timestamp_image = fs.get_timestamp()*1e-3;
-            if(abs(timestamp_image-new_timestamp_image)<0.001){
+            if(abs(prev_timestamp_image-new_timestamp_image)<0.001){
                 // cout << "Two frames with the same timeStamp!!!\n";
                 count_im_buffer--;
                 return;
@@ -221,12 +222,13 @@ int main(int argc, char **argv) {
             rs2::video_frame ir_frameL = fs.get_infrared_frame(1);
             rs2::video_frame ir_frameR = fs.get_infrared_frame(2);
 
-            imCV = cv::Mat(cv::Size(width_img, height_img), CV_8U, (void*)(ir_frameL.get_data()), cv::Mat::AUTO_STEP);
-            imRightCV = cv::Mat(cv::Size(width_img, height_img), CV_8U, (void*)(ir_frameR.get_data()), cv::Mat::AUTO_STEP);
+            imCV.push_back(cv::Mat(cv::Size(width_img, height_img), CV_8U, (void*)(ir_frameL.get_data()), cv::Mat::AUTO_STEP));
+            imRightCV.push_back(cv::Mat(cv::Size(width_img, height_img), CV_8U, (void*)(ir_frameR.get_data()), cv::Mat::AUTO_STEP));
 
-            timestamp_image = fs.get_timestamp()*1e-3;
+            timestamp_image.push_back(new_timestamp_image);
+            prev_timestamp_image = new_timestamp_image;
             if(timestamp_image_start<0)
-                timestamp_image_start = timestamp_image;
+                timestamp_image_start = timestamp_image.back();
             image_ready = true;
 
             while(v_gyro_timestamp.size() > v_accel_timestamp_sync.size())
@@ -361,26 +363,28 @@ int main(int argc, char **argv) {
     );
     float imageScale = SLAM.GetImageScale();
 
-    double timestamp;
-    cv::Mat im, imRight;
-
     // Clear IMU vectors
-    v_gyro_data.clear();
-    v_gyro_timestamp.clear();
-    v_accel_data_sync.clear();
-    v_accel_timestamp_sync.clear();
+    // v_gyro_data.clear();
+    // v_gyro_timestamp.clear();
+    // v_accel_data_sync.clear();
+    // v_accel_timestamp_sync.clear();
 
     double t_resize = 0.f;
     double t_track = 0.f;
 
     int n_lost_frames = 0;
 
+    std::vector<rs2_vector> vGyro;
+    std::vector<double> vGyro_times;
+    std::vector<rs2_vector> vAccel;
+    std::vector<double> vAccel_times;
+
+    int imu_index = 0;
+
     while (!SLAM.isShutDown())
     {
-        std::vector<rs2_vector> vGyro;
-        std::vector<double> vGyro_times;
-        std::vector<rs2_vector> vAccel;
-        std::vector<double> vAccel_times;
+        std::vector<cv::Mat> im, imRight;
+        std::vector<double> timestamp;
 
         {
             std::unique_lock<std::mutex> lk(imu_mutex);
@@ -402,7 +406,7 @@ int main(int argc, char **argv) {
 #endif
 
             if(count_im_buffer>1)
-                cout << count_im_buffer -1 << " dropped frs\n";
+                cout << "running " << count_im_buffer << " frames at once\n";
             count_im_buffer = 0;
 
             while(v_gyro_timestamp.size() > v_accel_timestamp_sync.size())
@@ -418,40 +422,44 @@ int main(int argc, char **argv) {
             }
 
             // Copy the IMU data
-            vGyro = v_gyro_data;
+            vGyro.insert(vGyro.end(), v_gyro_data.begin(), v_gyro_data.end());
             for (auto &t : v_gyro_timestamp)
                 vGyro_times.push_back(t - timestamp_image_start);
-            vAccel = v_accel_data_sync;
+            vAccel.insert(vAccel.end(), v_accel_data_sync.begin(), v_accel_data_sync.end());
             for (auto &t : v_accel_timestamp_sync)
                 vAccel_times.push_back(t - timestamp_image_start);
-            timestamp = timestamp_image - timestamp_image_start;
-            im = imCV.clone();
-            imRight = imRightCV.clone();
+            for (auto &t : timestamp_image)
+                timestamp.push_back(t - timestamp_image_start);
+
+            for (size_t i = 0; i < imCV.size(); ++i)
+            {
+                im.push_back(imCV[i].clone());
+                imRight.push_back(imRightCV[i].clone());
+            }
 
             // Clear IMU vectors
             v_gyro_data.clear();
             v_gyro_timestamp.clear();
             v_accel_data_sync.clear();
             v_accel_timestamp_sync.clear();
+            
+            // Clear image buffers
+            imCV.clear();
+            imRightCV.clear();
+            timestamp_image.clear();
 
             image_ready = false;
         }
 
 
-        for(int i=0; i<vGyro.size(); ++i)
-        {
-            ORB_SLAM3::IMU::Point lastPoint(vAccel[i].x, vAccel[i].y, vAccel[i].z,
-                                  vGyro[i].x, vGyro[i].y, vGyro[i].z,
-                                  vGyro_times[i]);
-            vImuMeas.push_back(lastPoint);
-        }
-
         if (!ir_l_mask_path.empty()){
-            im.setTo(cv::Scalar(0, 0, 0), ir_l_mask);
+            for (auto& t_im: im)
+                t_im.setTo(cv::Scalar(0, 0, 0), ir_l_mask);
         }
 
         if (!ir_r_mask_path.empty()){
-            imRight.setTo(cv::Scalar(0, 0, 0), ir_r_mask);
+            for (auto& t_im: imRight)
+                t_im.setTo(cv::Scalar(0, 0, 0), ir_r_mask);
         }
 
         // mask check
@@ -480,10 +488,13 @@ int main(int argc, char **argv) {
             std::chrono::steady_clock::time_point t_Start_Resize = std::chrono::steady_clock::now();
     #endif
 #endif
-            int width = im.cols * imageScale;
-            int height = im.rows * imageScale;
-            cv::resize(im, im, cv::Size(width, height));
-            cv::resize(imRight, imRight, cv::Size(width, height));
+            int width = width_img * imageScale;
+            int height = height_img * imageScale;
+            for (size_t i = 0; i < im.size(); ++i)
+            {
+                cv::resize(im[i], im[i], cv::Size(width, height));
+                cv::resize(imRight[i], imRight[i], cv::Size(width, height));
+            }
 
 #ifdef REGISTER_TIMES
     #ifdef COMPILEDWITHC11
@@ -504,35 +515,46 @@ int main(int argc, char **argv) {
     #endif
 #endif
         // Stereo images are already rectified.
-        SLAM.TrackStereo(im, imRight, timestamp, vImuMeas);
-
-        int trackingState = SLAM.GetTrackingState();
-        bool has_tracking = (trackingState == 2) || (trackingState == 3);
-
-        if (!has_tracking)
+        for (size_t i = 0; i < im.size(); ++i)
         {
-            n_lost_frames += 1;
-            std::cout << "n_lost_frames=" << n_lost_frames << std::endl;
-        }
-        if ((max_lost_frames > 0) && (n_lost_frames >= max_lost_frames))
-        {
-            std::cout << "Lost tracking on " << n_lost_frames << " >= " << max_lost_frames << " frames. Terminating!" << std::endl;
-            SLAM.Shutdown();
-            return 1;
-        }
+            vImuMeas.clear();
+            for(; imu_index<vGyro.size() && vGyro_times[imu_index] < timestamp[i]; ++imu_index)
+            {
+                ORB_SLAM3::IMU::Point lastPoint(vAccel[imu_index].x, vAccel[imu_index].y, vAccel[imu_index].z,
+                                    vGyro[imu_index].x, vGyro[imu_index].y, vGyro[imu_index].z,
+                                    vGyro_times[imu_index]);
+                vImuMeas.push_back(lastPoint);
+            }
+            // cout << "Tracking with " << vImuMeas.size() << " IMU measurements on " << i << "th image.\n";
+            SLAM.TrackStereo(im[i], imRight[i], timestamp[i], vImuMeas);
+            
+            // cout << "Tracked frame \n";
+            int trackingState = SLAM.GetTrackingState();
+            bool has_tracking = (trackingState == 2) || (trackingState == 3);
+            // cout << "Tracking state: " << trackingState << "\n";
+            if (!has_tracking)
+            {
+                n_lost_frames += 1;
+                std::cout << "n_lost_frames=" << n_lost_frames << std::endl;
+            }
+            if ((max_lost_frames > 0) && (n_lost_frames >= max_lost_frames))
+            {
+                std::cout << "Lost tracking on " << n_lost_frames << " >= " << max_lost_frames << " frames. Terminating!" << std::endl;
+                SLAM.Shutdown();
+                return 1;
+            }
 
 
 #ifdef REGISTER_TIMES
-    #ifdef COMPILEDWITHC11
-        std::chrono::steady_clock::time_point t_End_Track = std::chrono::steady_clock::now();
-    #else
-        std::chrono::steady_clock::time_point t_End_Track = std::chrono::steady_clock::now();
-    #endif
-        t_track = t_resize + std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t_End_Track - t_Start_Track).count();
-        SLAM.InsertTrackTime(t_track);
+        #ifdef COMPILEDWITHC11
+            std::chrono::steady_clock::time_point t_End_Track = std::chrono::steady_clock::now();
+        #else
+            std::chrono::steady_clock::time_point t_End_Track = std::chrono::steady_clock::now();
+        #endif
+            t_track = t_resize + std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t_End_Track - t_Start_Track).count();
+            SLAM.InsertTrackTime(t_track);
 #endif
-
-
+        }
 
         // Clear the previous IMU measurements to load the new ones
         vImuMeas.clear();
