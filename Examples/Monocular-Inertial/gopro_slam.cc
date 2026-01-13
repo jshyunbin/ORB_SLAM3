@@ -37,62 +37,71 @@ using namespace std;
 using nlohmann::json;
 const double MS_TO_S = 1e-3; ///< Milliseconds to second conversion
 
-void signal_callback_handler(int signum) {
-   cout << "gopro_slam.cc Caught signal " << signum << endl;
-   // Terminate program
-   exit(signum);
+void signal_callback_handler(int signum)
+{
+  cout << "gopro_slam.cc Caught signal " << signum << endl;
+  // Terminate program
+  exit(signum);
 }
 
 bool LoadTelemetry(const string &path_to_telemetry_file,
                    vector<double> &vTimeStamps,
                    vector<double> &coriTimeStamps,
                    vector<cv::Point3f> &vAcc,
-                   vector<cv::Point3f> &vGyro) {
+                   vector<cv::Point3f> &vGyro)
+{
 
-    std::ifstream file;
-    file.open(path_to_telemetry_file.c_str());
-    if (!file.is_open()) {
-      return false;
-    }
-    json j;
-    file >> j;
-    const auto accl = j["1"]["streams"]["ACCL"]["samples"];
-    const auto gyro = j["1"]["streams"]["GYRO"]["samples"];
-    const auto cori = j["1"]["streams"]["CORI"]["samples"];
-    std::map<double, cv::Point3f> sorted_acc;
-    std::map<double, cv::Point3f> sorted_gyr;
+  std::ifstream file;
+  file.open(path_to_telemetry_file.c_str());
+  if (!file.is_open())
+  {
+    return false;
+  }
+  json j;
+  file >> j;
+  const auto accl = j["1"]["streams"]["ACCL"]["samples"];
+  const auto gyro = j["1"]["streams"]["GYRO"]["samples"];
+  const auto cori = j["1"]["streams"]["CORI"]["samples"];
+  std::map<double, cv::Point3f> sorted_acc;
+  std::map<double, cv::Point3f> sorted_gyr;
 
-    for (const auto &e : accl) {
-      cv::Point3f v((float)e["value"][0], (float)e["value"][1], (float)e["value"][2]);
-      sorted_acc.insert(std::make_pair((double)e["cts"] * MS_TO_S, v));
-    }
-    for (const auto &e : gyro) {
-      cv::Point3f v((float)e["value"][0], (float)e["value"][1], (float)e["value"][2]);
-      sorted_gyr.insert(std::make_pair((double)e["cts"] * MS_TO_S, v));
-    }
+  for (const auto &e : accl)
+  {
+    cv::Point3f v((float)e["value"][0], (float)e["value"][1], (float)e["value"][2]);
+    sorted_acc.insert(std::make_pair((double)e["cts"] * MS_TO_S, v));
+  }
+  for (const auto &e : gyro)
+  {
+    cv::Point3f v((float)e["value"][0], (float)e["value"][1], (float)e["value"][2]);
+    sorted_gyr.insert(std::make_pair((double)e["cts"] * MS_TO_S, v));
+  }
 
-    double imu_start_t = sorted_acc.begin()->first;
-    for (auto acc : sorted_acc) {
-        vTimeStamps.push_back(acc.first-imu_start_t);
-        vAcc.push_back(acc.second);
-    }
-    for (auto gyr : sorted_gyr) {
-        vGyro.push_back(gyr.second);
-    }
-    for (const auto &e : cori) {
-        coriTimeStamps.push_back((double)e["cts"] * MS_TO_S);
-    }
+  double imu_start_t = sorted_acc.begin()->first;
+  for (auto acc : sorted_acc)
+  {
+    vTimeStamps.push_back(acc.first - imu_start_t);
+    vAcc.push_back(acc.second);
+  }
+  for (auto gyr : sorted_gyr)
+  {
+    vGyro.push_back(gyr.second);
+  }
+  for (const auto &e : cori)
+  {
+    coriTimeStamps.push_back((double)e["cts"] * MS_TO_S);
+  }
 
-    file.close();
-    return true;
+  file.close();
+  return true;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
   // Register signal and signal handler
-  // A process running as PID 1 inside a container 
-  // is treated specially by Linux: it ignores any 
-  // signal with the default action. As a result, 
-  // the process will not terminate on SIGINT or 
+  // A process running as PID 1 inside a container
+  // is treated specially by Linux: it ignores any
+  // signal with the default action. As a result,
+  // the process will not terminate on SIGINT or
   // SIGTERM unless it is coded to do so.
   // This allows stopping the docker container with ctrl-c
   signal(SIGINT, signal_callback_handler);
@@ -148,10 +157,13 @@ int main(int argc, char **argv) {
   int max_lost_frames = -1;
   app.add_option("--max_lost_frames", max_lost_frames);
 
-  try {
+  try
+  {
     app.parse(argc, argv);
-  } catch (const CLI::ParseError &e) {
-      return app.exit(e);
+  }
+  catch (const CLI::ParseError &e)
+  {
+    return app.exit(e);
   }
 
   cv::setNumThreads(num_threads);
@@ -163,20 +175,23 @@ int main(int argc, char **argv) {
 
   // open setting to get image resolution
   cv::FileStorage fsSettings(setting, cv::FileStorage::READ);
-  if(!fsSettings.isOpened()) {
-     cerr << "Failed to open setting file at: " << setting << endl;
-     exit(-1);
+  if (!fsSettings.isOpened())
+  {
+    cerr << "Failed to open setting file at: " << setting << endl;
+    exit(-1);
   }
-  cv::Size img_size(fsSettings["Camera.width"],fsSettings["Camera.height"]);
+  cv::Size img_size(fsSettings["Camera.width"], fsSettings["Camera.height"]);
   fsSettings.release();
 
   vector<double> vTimestamps;
 
   // load mask image
   cv::Mat mask_img;
-  if (!mask_img_path.empty()) {
+  if (!mask_img_path.empty())
+  {
     mask_img = cv::imread(mask_img_path, cv::IMREAD_GRAYSCALE);
-    if (mask_img.size() != img_size) {
+    if (mask_img.size() != img_size)
+    {
       std::cout << "Mask img size mismatch! Converting " << mask_img.size() << " to " << img_size << endl;
       cv::resize(mask_img, mask_img, img_size);
     }
@@ -185,15 +200,20 @@ int main(int argc, char **argv) {
   // Create SLAM system. It initializes all system threads and gets ready to process frames.
   cv::Ptr<cv::aruco::Dictionary> aruco_dict = cv::aruco::getPredefinedDictionary(aruco_dict_id);
   ORB_SLAM3::System SLAM(
-    vocabulary, setting, 
-    ORB_SLAM3::System::IMU_MONOCULAR, 
-    enable_gui, load_map, save_map,
-    aruco_dict, init_tag_id, init_tag_size
-  );
+      vocabulary,
+      setting,
+      ORB_SLAM3::System::IMU_MONOCULAR,
+      enable_gui,
+      load_map,
+      save_map,
+      aruco_dict,
+      init_tag_id,
+      init_tag_size);
 
   // Open video file
   cv::VideoCapture cap(input_video, cv::CAP_FFMPEG);
-  if (!cap.isOpened()) {
+  if (!cap.isOpened())
+  {
     std::cout << "Error opening video stream or file" << endl;
     return -1;
   }
@@ -204,41 +224,51 @@ int main(int argc, char **argv) {
   cout << "Video opened using backend " << cap.getBackendName() << endl;
   cout << "There are " << nImages << " frames in total" << endl;
   cout << "video FPS " << fps << endl;
-  
+
   std::vector<ORB_SLAM3::IMU::Point> vImuMeas;
   size_t last_imu_idx = 0;
   int n_lost_frames = 0;
-  for (int frame_idx=0; frame_idx < nImages; frame_idx++){
+  for (int frame_idx = 0; frame_idx < nImages; frame_idx++)
+  {
     double tframe = (double)frame_idx / fps;
 
     // read frame from video
-    cv::Mat im,im_track;
+    cv::Mat im, im_track;
     bool success = cap.read(im);
-    if (!success) {
+    if (!success)
+    {
       cout << "cap.read failed!" << endl;
       break;
     }
 
     // resize image and draw gripper mask
     im_track = im.clone();
-    if (im_track.size() != img_size){
+    if (im_track.size() != img_size)
+    {
       cv::resize(im_track, im_track, img_size);
     }
 
     // apply mask image if loaded
-    if (!mask_img.empty()) {
-      im_track.setTo(cv::Scalar(0,0,0), mask_img);
+    if (!mask_img.empty())
+    {
+      im_track.setTo(cv::Scalar(0, 0, 0), mask_img);
     }
 
     // gather imu measurements between frames
     // Load imu measurements from previous frame
     vImuMeas.clear();
-    while(imuTimestamps[last_imu_idx] <= tframe && tframe > 0)
+    while (imuTimestamps[last_imu_idx] <= tframe && tframe > 0)
     {
-        vImuMeas.push_back(ORB_SLAM3::IMU::Point(vAcc[last_imu_idx].x,vAcc[last_imu_idx].y,vAcc[last_imu_idx].z,
-                                                  vGyr[last_imu_idx].x,vGyr[last_imu_idx].y,vGyr[last_imu_idx].z,
-                                                  imuTimestamps[last_imu_idx]));
-        last_imu_idx++;
+      vImuMeas.push_back(
+          ORB_SLAM3::IMU::Point(
+              vAcc[last_imu_idx].x,
+              vAcc[last_imu_idx].y,
+              vAcc[last_imu_idx].z,
+              vGyr[last_imu_idx].x,
+              vGyr[last_imu_idx].y,
+              vGyr[last_imu_idx].z,
+              imuTimestamps[last_imu_idx]));
+      last_imu_idx++;
     }
 
     std::chrono::steady_clock::time_point t1 =
@@ -248,14 +278,16 @@ int main(int argc, char **argv) {
     auto result = SLAM.LocalizeMonocular(im_track, tframe, vImuMeas);
 
     // check lost frames
-    if (! result.second){
-        n_lost_frames += 1;
-        std::cout << "n_lost_frames=" << n_lost_frames << std::endl;
+    if (!result.second)
+    {
+      n_lost_frames += 1;
+      std::cout << "n_lost_frames=" << n_lost_frames << std::endl;
     }
-    if ((max_lost_frames > 0) && (n_lost_frames >= max_lost_frames)){
-        std::cout << "Lost tracking on " << n_lost_frames << " >= " << max_lost_frames << " frames. Terminating!" << std::endl;
-        SLAM.Shutdown();
-        return 1;
+    if ((max_lost_frames > 0) && (n_lost_frames >= max_lost_frames))
+    {
+      std::cout << "Lost tracking on " << n_lost_frames << " >= " << max_lost_frames << " frames. Terminating!" << std::endl;
+      SLAM.Shutdown();
+      return 1;
     }
 
     std::chrono::steady_clock::time_point t2 =
@@ -265,26 +297,26 @@ int main(int argc, char **argv) {
         std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1)
             .count();
 
-    if (frame_idx % 100 == 0) {
-      std::cout<<"Video FPS: "<<fps<<"\n";
-      std::cout<<"ORB-SLAM 3 running at: "<<1./ttrack<< " FPS\n";
+    if (frame_idx % 100 == 0)
+    {
+      std::cout << "Video FPS: " << fps << "\n";
+      std::cout << "ORB-SLAM 3 running at: " << 1. / ttrack << " FPS\n";
     }
   }
 
   // Stop all threads
   SLAM.Shutdown();
 
-
   // Save camera trajectory
-  if (!output_trajectory_tum.empty()) {
+  if (!output_trajectory_tum.empty())
+  {
     SLAM.SaveTrajectoryTUM(output_trajectory_tum);
   }
 
-  if (!output_trajectory_csv.empty()) {
+  if (!output_trajectory_csv.empty())
+  {
     SLAM.SaveTrajectoryCSV(output_trajectory_csv);
   }
 
   return 0;
 }
-
-

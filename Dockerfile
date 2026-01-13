@@ -1,4 +1,4 @@
-# Registered at https://hub.docker.com/repository/docker/chicheng/orb_slam3/general
+# Registered at https://hub.docker.com/repository/docker/jshyunbin/orb_slam3/general
 FROM ubuntu:22.04
 
 # copy files over
