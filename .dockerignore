@@ -41,7 +41,7 @@ Examples/Monocular-Inertial/mono_inertial_gopro_vi
 
 Examples/Stereo-Inertial/stereo_inertial_euroc
 Examples/Stereo-Inertial/stereo_inertial_tum_vi
-Examples/Stereo-Inertial/stereo_inertial_realsense_t265
+Examples/Stereo-Inertial/realsense_slam
 Examples/Stereo-Inertial/stereo_inertial_realsense_D435i
 
 
