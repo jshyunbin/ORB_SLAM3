@@ -284,12 +284,10 @@ int main(int argc, char **argv)
             std::chrono::steady_clock::now();
 
         // Pass the image to the SLAM system
-        SLAM.TrackStereo(im_l_track, im_r_track, tframe, vImuMeas);
+        auto result = SLAM.LocalizeStereo(im_l_track, im_r_track, tframe, vImuMeas);
 
-        int trackingState = SLAM.GetTrackingState();
-        bool has_tracking = (trackingState == 2) || (trackingState == 3);
-        
-        if (!has_tracking)
+        // check lost frames
+        if (!result.second)
         {
             n_lost_frames += 1;
             std::cout << "n_lost_frames=" << n_lost_frames << std::endl;
