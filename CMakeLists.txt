@@ -152,3 +152,10 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Stereo-Inertia
 add_executable(realsense_slam
 Examples/Stereo-Inertial/realsense_slam.cc)
 target_link_libraries(realsense_slam ${PROJECT_NAME})
+
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Stereo)
+
+add_executable(stereo_realsense_slam
+Examples/Stereo/stereo_realsense_slam.cc)
+target_link_libraries(stereo_realsense_slam ${PROJECT_NAME})

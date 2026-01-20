@@ -68,35 +68,6 @@ Stereo.T_c1_c2: !!opencv-matrix
 # Depth Threshold (Baseline의 약 40배)
 Stereo.ThDepth: 40.0
 
-#--------------------------------------------------------------------------------------------
-# Transformation from body-frame (imu) to left camera
-#--------------------------------------------------------------------------------------------
-# [수정] 로그에 찍힌 Tbc (left) 값 적용
-IMU.T_b_c1: !!opencv-matrix
-   rows: 4
-   cols: 4
-   dt: f
-   data: [1.0, 0.0, 0.0, -0.00552,
-          0.0, 1.0, 0.0, 0.0051,
-          0.0, 0.0, 1.0, 0.01174,
-          0.0, 0.0, 0.0, 1.0]
-
-# Do not insert KFs when recently lost
-IMU.InsertKFsWhenLost: 0
-
-# IMU noise (D435i 표준값)
-# IMU.NoiseGyro: 1.7e-4 
-# IMU.NoiseAcc: 2.0e-3 
-# IMU.GyroWalk: 1.9393e-05 
-# IMU.AccWalk: 3.0e-03 
-# IMU.Frequency: 200.0
-
-# IMU noise (Use those from VINS-mono)
-IMU.NoiseGyro: 1e-3 # 2.44e-4 #1e-3 # rad/s^0.5
-IMU.NoiseAcc: 1e-2 # 1.47e-3 #1e-2 # m/s^1.5
-IMU.GyroWalk: 1e-6 # rad/s^1.5
-IMU.AccWalk: 1e-4 # m/s^2.5
-IMU.Frequency: 100.0
 
 #--------------------------------------------------------------------------------------------
 # ORB Parameters
