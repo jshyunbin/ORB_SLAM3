@@ -45,7 +45,7 @@ void signal_callback_handler(int signum)
 
 bool LoadTelemetry(const string &path_to_telemetry_file,
                    vector<double> &vTimeStamps,
-                //    vector<double> &coriTimeStamps,
+                   vector<double> &coriTimeStamps,
                    vector<cv::Point3f> &vAcc,
                    vector<cv::Point3f> &vGyro)
 {
@@ -63,19 +63,35 @@ bool LoadTelemetry(const string &path_to_telemetry_file,
         std::stringstream lineStream(line);
         std::string cell;
         std::vector<std::string> result;
+        int idx = 0;
+        bool is_imu_data = true;
 
         while (std::getline(lineStream, cell, ','))
         {
+            if (idx == 8 && !cell.empty()) 
+            {
+                coriTimeStamps.push_back(std::stod(result[0]));
+                break;
+            }
             if (cell.empty())
+            {
                 cell = "0.0";
+                if (idx < 7)
+                {
+                    is_imu_data = false;
+                }
+            }
             result.push_back(cell);
+            idx++;
         }
         // This checks for a trailing comma with no data after it.
-        if (!lineStream && cell.empty())
-        {
-            // If there was a trailing comma then add an empty element.
-            result.push_back("0.0");
-        }
+        // if (!lineStream && cell.empty())
+        // {
+        //     // If there was a trailing comma then add an empty element.
+        //     result.push_back("0.0");
+        // }
+        if (!is_imu_data) 
+            continue;
 
         vTimeStamps.push_back(std::stod(result[0]));
         vAcc.push_back(cv::Point3f(std::stof(result[1]), std::stof(result[2]), std::stof(result[3])));
@@ -112,8 +128,8 @@ int main(int argc, char **argv)
     std::string input_video_r;
     app.add_option("--input_video_r", input_video_r)->required();
 
-    std::string input_imu_csv;
-    app.add_option("-c,--input_imu_csv", input_imu_csv)->required();
+    std::string input_df_csv;
+    app.add_option("-c,--input_df_csv", input_df_csv)->required();
 
     std::string output_trajectory_tum;
     app.add_option("--output_trajectory_tum", output_trajectory_tum);
@@ -168,7 +184,7 @@ int main(int argc, char **argv)
     vector<double> imuTimestamps;
     vector<double> camTimestamps;
     vector<cv::Point3f> vAcc, vGyr;
-    LoadTelemetry(input_imu_csv, imuTimestamps, vAcc, vGyr);
+    LoadTelemetry(input_df_csv, imuTimestamps, camTimestamps, vAcc, vGyr);
 
     // open setting to get image resolution
     cv::FileStorage fsSettings(setting, cv::FileStorage::READ);
@@ -179,8 +195,6 @@ int main(int argc, char **argv)
     }
     cv::Size img_size(fsSettings["Camera.width"], fsSettings["Camera.height"]);
     fsSettings.release();
-
-    vector<double> vTimestamps;
 
     // load mask image
     cv::Mat ir_l_mask, ir_r_mask;
@@ -224,13 +238,17 @@ int main(int argc, char **argv)
     cout << "There are " << nImages << " frames in total" << endl;
     cout << "video FPS " << fps << endl;
 
+    if (nImages != camTimestamps.size()) 
+    {
+        std::cout << "Image count from video does not match the timestamp file" << endl;
+        return -2;
+    }
+
     std::vector<ORB_SLAM3::IMU::Point> vImuMeas;
     size_t last_imu_idx = 0;
     int n_lost_frames = 0;
     for (int frame_idx = 0; frame_idx < nImages; frame_idx++)
     {
-        double tframe = (double)frame_idx / fps;
-
         // read frame from video
         cv::Mat im_l, im_r, im_l_track, im_r_track;
         bool success = cap_l.read(im_l) && cap_r.read(im_r);
@@ -266,7 +284,7 @@ int main(int argc, char **argv)
         // gather imu measurements between frames
         // Load imu measurements from previous frame
         vImuMeas.clear();
-        while (imuTimestamps[last_imu_idx] <= tframe && tframe > 0)
+        while (imuTimestamps[last_imu_idx] <= camTimestamps[frame_idx] && camTimestamps[frame_idx] > 0)
         {
             vImuMeas.push_back(
                 ORB_SLAM3::IMU::Point(
@@ -284,7 +302,7 @@ int main(int argc, char **argv)
             std::chrono::steady_clock::now();
 
         // Pass the image to the SLAM system
-        auto result = SLAM.LocalizeStereo(im_l_track, im_r_track, tframe, vImuMeas);
+        auto result = SLAM.LocalizeStereo(im_l_track, im_r_track, camTimestamps[frame_idx], vImuMeas);
 
         // check lost frames
         if (!result.second)
