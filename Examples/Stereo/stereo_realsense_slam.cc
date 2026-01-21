@@ -43,6 +43,41 @@ void signal_callback_handler(int signum)
     exit(signum);
 }
 
+bool LoadTelemetry(const string &path_to_telemetry_file,
+                   vector<double> &coriTimeStamps)
+{
+    std::ifstream file;
+    file.open(path_to_telemetry_file.c_str());
+    if (!file.is_open())
+    {
+        return false;
+    }
+
+    std::string line;
+    std::getline(file, line); // skip header line
+    while (std::getline(file, line))
+    {
+        std::stringstream lineStream(line);
+        std::string cell;
+        std::vector<std::string> result;
+        int idx = 0;
+
+        while (std::getline(lineStream, cell, ','))
+        {
+            if (idx == 8 && !cell.empty())
+            {
+                coriTimeStamps.push_back(std::stod(result[0]));
+                break;
+            }
+            result.push_back(cell);
+            idx++;
+        }
+    }
+
+    file.close();
+    return true;
+}
+
 int main(int argc, char **argv)
 {
     // Register signal and signal handler
@@ -68,6 +103,9 @@ int main(int argc, char **argv)
 
     std::string input_video_r;
     app.add_option("--input_video_r", input_video_r)->required();
+
+    std::string input_df_csv;
+    app.add_option("-c,--input_df_csv", input_df_csv)->required();
 
     std::string output_trajectory_tum;
     app.add_option("--output_trajectory_tum", output_trajectory_tum);
@@ -118,6 +156,9 @@ int main(int argc, char **argv)
     }
 
     cv::setNumThreads(num_threads);
+
+    vector<double> camTimestamps;
+    LoadTelemetry(input_df_csv, camTimestamps);
 
     // open setting to get image resolution
     cv::FileStorage fsSettings(setting, cv::FileStorage::READ);
@@ -172,11 +213,15 @@ int main(int argc, char **argv)
     cout << "There are " << nImages << " frames in total" << endl;
     cout << "video FPS " << fps << endl;
 
+    if (nImages != camTimestamps.size())
+    {
+        std::cout << "Image count from video does not match the timestamp file" << endl;
+        return -2;
+    }
+
     int n_lost_frames = 0;
     for (int frame_idx = 0; frame_idx < nImages; frame_idx++)
     {
-        double tframe = (double)frame_idx / fps;
-
         // read frame from video
         cv::Mat im_l, im_r, im_l_track, im_r_track;
         bool success = cap_l.read(im_l) && cap_r.read(im_r);
@@ -213,7 +258,7 @@ int main(int argc, char **argv)
             std::chrono::steady_clock::now();
 
         // Pass the image to the SLAM system
-        auto result = SLAM.LocalizeStereo(im_l_track, im_r_track, tframe, vector<ORB_SLAM3::IMU::Point>());
+        auto result = SLAM.LocalizeStereo(im_l_track, im_r_track, camTimestamps[frame_idx], vector<ORB_SLAM3::IMU::Point>());
 
         // check lost frames
         if (!result.second)
